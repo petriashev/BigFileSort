@@ -2,7 +2,6 @@
 
 public sealed class FileGenerator : IFileGenerator
 {
-    private long _targetFileSize = 1.GigabytesInBytes();
     private long _currentFileSize;
     
     /// <inheritdoc />
@@ -10,19 +9,23 @@ public sealed class FileGenerator : IFileGenerator
     {
         using var streamWriter = new StreamWriter(output, bufferSize: 10.MegabytesInBytes());
 
-        while (_currentFileSize <= command.TargetFileSize)
+        var targetFileSize = command.TargetFileSize - 100;
+        while (_currentFileSize <= targetFileSize)
         {
-            var textLine = GenerateLine();
-            streamWriter.Write(textLine);
-            _currentFileSize += textLine.Length;
+            GenerateLine(out string number, out string text);
+            streamWriter.Write(number);
+            streamWriter.Write(". ");
+            streamWriter.Write(text);
+            streamWriter.Write(Environment.NewLine);
+            
+            _currentFileSize += number.Length + text.Length + 2 + Environment.NewLine.Length;
         }
     }
 
-    public string GenerateLine()
+    private void GenerateLine(out string number, out string text)
     {
         // Example: '415. Apple'
-        var number = Random.Shared.Next(1, 999999);
-        string text = $"String_{Random.Shared.Next(1, 999999)}";
-        return $"{number}. {text}{Environment.NewLine}";
+        number = Random.Shared.Next(1, 999999).ToString();
+        text = $"String_{Random.Shared.Next(1, 999999)}";
     }
 }

@@ -7,73 +7,126 @@ public sealed class BufferFileParser : IFileParser
     /// <inheritdoc />
     public ParseResult ReadAndParse(ParseContext parseContext)
     {
-        var buffer = parseContext.Buffer;
-        byte[] delimiter = parseContext.Command.Delimiter;
-        Encoding? encoding = parseContext.Command.Encoding;
+        ParserState state = new ParserState(
+            parseContext.Buffer,
+            parseContext.Command.Delimiter,
+            parseContext.Command.Encoding);
 
-        int totalLines = 0;
-        int startIndex = 0;
-        int bytesConsumed = 0;
-
-        while (TryReadLine(buffer, delimiter, encoding, ref startIndex, ref bytesConsumed, out LineValue line))
+        while (state.TryReadLine(isLastLine: false))
         {
-            if (!line.IsValid())
-                continue;
-            
-            parseContext.AddLineToIndex(line.Text, line.Number);
-            
-            totalLines++;
-        }
-
-        if (bytesConsumed < parseContext.BufferLength)
-        {
-            int length = parseContext.BufferLength - bytesConsumed;
-            if (TryReadLastLine(buffer, encoding, ref startIndex, length, out LineValue line))
+            var line = new ValueVirtualString(parseContext.Buffer, state.StartIndex, state.Length);
+            if (Split(line, out var number, out var text))
             {
-                parseContext.AddLineToIndex(line.Text, line.Number);
-                totalLines++;
+                parseContext.AddLineToIndex(text, number.ToInt());
+            }
+            else
+            {
+                //TODO Error
+                Console.WriteLine();
+            }
+        }
+        
+        if (state.BytesConsumed < parseContext.BufferLength)
+        {
+            if (state.TryReadLine(isLastLine: true))
+            {
+                var line = new ValueVirtualString(parseContext.Buffer, state.StartIndex, state.Length);
+                Split(line, out var number, out var text);
+                parseContext.AddLineToIndex(text, number.ToInt());
             }
         }
 
-        return new ParseResult(totalLines);
+        return new ParseResult(state.TotalLines);
+    }
+    
+    private static bool Split(in ValueVirtualString virtualString, out ValueVirtualString number, out ValueVirtualString text)
+    {
+        int dotIndexAbs = virtualString.Buffer.PositionOf((byte)'.', virtualString.Start);
+        int textIndexAbs = dotIndexAbs + 2;
+        int textIndex = textIndexAbs - virtualString.Start;
+        int dotIndex = dotIndexAbs - virtualString.Start;
+        
+        number = new ValueVirtualString(virtualString.Buffer, virtualString.Start, dotIndex);
+        text = new ValueVirtualString(virtualString.Buffer, textIndexAbs, virtualString.Length - textIndex);
+            
+        return number.Length > 0 && text.Length > 0;
+    }
+}
+
+public class ParserState
+{
+    public byte[] Buffer { get; }
+    public byte[] Delimiter { get; }
+    public Encoding? Encoding { get; }
+
+    public ParserState(byte[] buffer, byte[] delimiter, Encoding? encoding)
+    {
+        Buffer = buffer;
+        Delimiter = delimiter;
+        Encoding = encoding;
     }
 
-    private bool TryReadLine(byte[] buffer, byte[] delimiter, Encoding? encoding, ref int startIndex, ref int bytesConsumed, out LineValue line)
+    public int CurrentIndex;
+    public int StartIndex;
+    public int Length;
+    public int BytesConsumed;
+    public int TotalLines;
+}
+
+public static class BufferParser
+{
+    public static bool TryReadLine(this ParserState state, bool isLastLine)
     {
+        byte[] buffer = state.Buffer;
+        byte[] delimiter = state.Delimiter;
+        
+        #region Delimiter search
         int advance = 0;
         
-        int position = buffer.PositionOf(delimiter[0], startIndex);
-        if (position < 0)
+        int delimiterIndex;
+        if (!isLastLine)
         {
-            line = default;
-            return false;
-        }
-        advance++;
-    
-        if (delimiter.Length > 1)
-        {
-            bool isInRange = position + 1 < buffer.Length - 1;
-            if (isInRange && buffer[position+1] != delimiter[1])
+            delimiterIndex = buffer.PositionOf(delimiter[0], state.CurrentIndex);
+            if (delimiterIndex < 0)
             {
-                line = default;
+                state.Length = 0;
                 return false;
             }
-
             advance++;
+
+            if (delimiter.Length > 1)
+            {
+                bool isInRange = delimiterIndex + 1 <= buffer.Length - 1;
+                if (isInRange)
+                {
+                    if (buffer[delimiterIndex+1] != delimiter[1])
+                    {
+                        state.Length = 0;
+                        return false;
+                    }
+                    advance++;
+                }
+            }       
+        }
+        else
+        {
+            delimiterIndex = buffer.PositionOf(0, state.CurrentIndex);
+            if(delimiterIndex < 0)
+                delimiterIndex = buffer.Length - 1;
         }
         
-        var length = position - startIndex;
-        line = LineParser.FromByteBuffer(buffer, startIndex, length, encoding);
+        #endregion
         
-        startIndex = position + advance;
-        bytesConsumed += length + advance;
-            
-        return true;
-    }
-    
-    private bool TryReadLastLine(byte[] buffer, Encoding? encoding, ref int startIndex, int length, out LineValue line)
-    {
-        line = buffer.ParseLine(startIndex, length, encoding);
+        // current line start and length
+        state.StartIndex = state.CurrentIndex;
+        state.Length = delimiterIndex - state.StartIndex;
+        
+        // next line start
+        state.CurrentIndex = delimiterIndex + advance;
+
+        state.BytesConsumed += state.Length + advance;
+        state.TotalLines += 1;
+        
         return true;
     }
 }

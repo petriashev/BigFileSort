@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using System.Text;
+﻿using System.Text;
 
 namespace BigFileSort.Domain;
 
@@ -39,10 +38,8 @@ public sealed class FileSorter : IFileSorter
             
             int countCharsAligned = inputBytes.CountCharsAligned(bytesRead);
             if (isLast || countCharsAligned == 0 && bytesRead > 0)
-            {
                 countCharsAligned = bytesRead;
-            }
-
+            
             if (countCharsAligned == 0)
                 break;
             
@@ -117,6 +114,49 @@ public sealed class FileSorter : IFileSorter
         {
             var parseResult = fileParser.ReadAndParse(parseContext);
             readAndParse.AddInfo($"TotalLines = {parseResult.TotalLines}");
+        }
+
+        if (parseContext.VirtualTargetIndex.Count > 0)
+        {
+            KeyValuePair<ValueVirtualString, List<int>>[] orderedByText;
+           
+            using (new Measure("Sort"))
+            {
+                orderedByText = parseContext
+                    .VirtualTargetIndex
+                    .OrderBy(pair => pair.Key)
+                    .ToArray();
+                
+                // Sort in-place
+                foreach (var pair in orderedByText)
+                    pair.Value.Sort();
+            }
+            
+            var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
+            files.Add(fileName);
+            using (new Measure($"WriteSorted {fileName.ShortFileName}"))
+            {
+                using var fileStream = new FileStream(fileName.Name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, bufferSize: 1.MegabytesInBytes());
+                
+                ReadOnlySpan<byte> dotDelimiter = Encoding.UTF8.GetBytes(". ").AsSpan();
+                ReadOnlySpan<byte> newLine = Encoding.UTF8.GetBytes(Environment.NewLine).AsSpan();
+                
+                foreach (var linePair in orderedByText)
+                {
+                    var text = linePair.Key.AsSpan();
+                    var orderedNumbers = linePair.Value;//.OrderBy(n => n);
+                    foreach (var number in orderedNumbers)
+                    {
+                        using var numberBytes = number.ToSpan();
+                        fileStream.Write(numberBytes.AsSpan());
+                        fileStream.Write(dotDelimiter);
+                        fileStream.Write(text);
+                        fileStream.Write(newLine);
+                    }
+                }
+
+                fileStream.Flush();
+            }
         }
 
         if (index.Count > 0)

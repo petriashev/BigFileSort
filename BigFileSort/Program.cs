@@ -1,50 +1,72 @@
 ﻿using System.Diagnostics;
-using System.Text;
+using BigFileSort;
 using BigFileSort.Domain;
+using Newtonsoft.Json;
 
-Console.WriteLine("Hello, World!");
+Console.WriteLine("BigFileSort");
+
+var configurationText = File.ReadAllText("appsettings.json");
+var configuration = JsonConvert.DeserializeObject<BigFileSortConfiguration>(configurationText);
+
+if (configuration.WorkingDirectory != null)
+{
+    configuration.WorkingDirectory = Path.GetFullPath(configuration.WorkingDirectory);
+    Directory.CreateDirectory(configuration.WorkingDirectory);
+    Directory.SetCurrentDirectory(configuration.WorkingDirectory);
+    Console.WriteLine($"WorkingDirectory: {configuration.WorkingDirectory}");
+}
+
+Console.WriteLine($"Command: {configuration.Command}");
+
 Stopwatch stopwatch = Stopwatch.StartNew();
 
-bool generate = false;
-var MAX_BYTE_ARRAY_SIZE = 0X7FEFFFFF;
-
-if (generate)
+if (configuration.Command == FileCommand.Generate)
 {
-    using var fileStream = new FileStream("generated10.txt", FileMode.OpenOrCreate);
+    var settings = configuration.Generate;
+    var outputFileName = settings.OutputFileName;
+    var inBytes = settings.SizeInGigabytes?.GigabytesInBytes() ?? settings.SizeInMegabytes?.MegabytesInBytes() ?? 1.GigabytesInBytes();
+    
+    using var fileStream = new FileStream(outputFileName, FileMode.OpenOrCreate);
     fileStream.Position = 0;
     IFileGenerator fileGenerator = new FileGenerator();
-    fileGenerator.GenerateFile(fileStream, new GenerateFileCommand{ TargetFileSize = 10.GigabytesInBytes()-200});
+    fileGenerator.GenerateFile(fileStream, new GenerateFileCommand { TargetFileSize = inBytes});
     
     Console.WriteLine($"Generated in {stopwatch.Elapsed}");
     return;
 }
 
-var fileSorter = new FileSorter();
-var sortFileCommand = new SortFileCommand()
+if (configuration.Command == FileCommand.Sort)
 {
-    InputFileName = @"C:\Users\petri\Documents\Projects\BigFileSort\BigFileSort\bin\Release\net6.0\generated10.txt",
-    OutputFileName = "sorted_{0}.txt",
-    // Одним куском минимальное время, но максимальная память
-    //MemoryLimitInBytes = 1200.MegabytesInBytes(),
-    //MemoryLimitInBytes = 520.MegabytesInBytes(),
-    MemoryLimitInBytes = 1025.MegabytesInBytes(),
-    Delimiter =  new []{ (byte)'\r', (byte)'\n'},
-    Encoding = Encoding.UTF8,
-    // BufferFileParser на данный момент самый быстрый
-    //FileParser = new StreamReaderParser(),
-    //FileParser = new SpanFileParser(),
-    //FileParser = new BufferFileParser(),
-    FileParser = new StreamReaderParser(),
+    var MAX_BYTE_ARRAY_SIZE = 0X7FEFFFFF;
     
-    FileMerger = new StreamFileMerger()
-};
+    var fileSorter = new FileSorter();
+    var settings = configuration.Sort;
+    var sortFileCommand = new SortFileCommand()
+    {
+        InputFileName = settings.InputFileName,
+        OutputFileName = settings.OutputFileName,
+        
+        // Одним куском минимальное время, но максимальная память
+        MemoryLimitInBytes = settings.MemoryLimitInMegabytes?.MegabytesInBytes() ?? MAX_BYTE_ARRAY_SIZE,
+        Delimiter = settings.Delimiter,
+        
+        // BufferFileParser на данный момент самый быстрый
+        FileParser = settings.FileParser == "BufferFileParser"? new BufferFileParser()
+            : settings.FileParser == "StreamReaderParser" ? new StreamReaderParser()
+            : new BufferFileParser(),
+    
+        FileMerger = new StreamFileMerger()
+    };
 
-Directory.SetCurrentDirectory(@"C:\Users\petri\Documents\Projects\BigFileSort\BigFileSort\bin\Release\net6.0");
+    if (sortFileCommand.MemoryLimitInBytes < 0 || sortFileCommand.MemoryLimitInBytes > MAX_BYTE_ARRAY_SIZE)
+        sortFileCommand = sortFileCommand with{ MemoryLimitInBytes = MAX_BYTE_ARRAY_SIZE };
+    
+    //sortFileCommand = sortFileCommand with { InputFileName = "sample.txt", MemoryLimitInBytes = 60 };
+    //sortFileCommand = sortFileCommand with { InputFileName = "generated.txt", MemoryLimitInBytes = 520.MegabytesInBytes() };
+    //sortFileCommand = sortFileCommand with { InputFileName = "generated.txt", MemoryLimitInBytes = 1025.MegabytesInBytes() };
+    //sortFileCommand = sortFileCommand with { InputFileName = "generated10.txt", MemoryLimitInBytes = MAX_BYTE_ARRAY_SIZE };
 
-//sortFileCommand = sortFileCommand with { InputFileName = "sample.txt", MemoryLimitInBytes = 60 };
-sortFileCommand = sortFileCommand with { InputFileName = "generated.txt", MemoryLimitInBytes = 520.MegabytesInBytes() };
-//sortFileCommand = sortFileCommand with { InputFileName = "generated10.txt", MemoryLimitInBytes = MAX_BYTE_ARRAY_SIZE };
+    fileSorter.SortFile(sortFileCommand);
 
-fileSorter.SortFile(sortFileCommand);
-
-Console.WriteLine($"Sorted in {stopwatch.Elapsed}");
+    Console.WriteLine($"Sorted in {stopwatch.Elapsed}");
+}

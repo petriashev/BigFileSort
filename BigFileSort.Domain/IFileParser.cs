@@ -22,6 +22,8 @@ public record ParseContext
     public MemoryStream SourceBuffer => new MemoryStream(Buffer, 0, BufferLength);
     
     public Dictionary<string, List<int>> TargetIndex { get; init; }
+
+    public Dictionary<ValueVirtualString, List<int>> VirtualTargetIndex { get; init; } = new();
     
     public List<FileName> Files { get; init; }
     

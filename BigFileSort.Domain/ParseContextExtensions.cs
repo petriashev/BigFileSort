@@ -13,4 +13,19 @@ public static class ParseContextExtensions
             parseContext.TargetIndex.Add(text, new List<int>(4) { number });
         }
     }
+    
+    public static void AddLineToIndex(this ParseContext parseContext, ValueVirtualString text, int number)
+    {
+        var targetIndex = parseContext.VirtualTargetIndex;
+   
+        if (targetIndex.TryGetValue(text, out var numbers))
+        {
+            numbers.Add(number);
+            //numbers.Sort();
+        }
+        else
+        {
+            targetIndex.Add(text, new List<int>(64) { number });
+        }
+    }
 }

@@ -97,20 +97,4 @@ public static class LineParser
         
         return null;
     }
-
-    public static LineSpan ParseLineSpan(this string line)
-    {
-        ReadOnlySpan<char> span = line.AsSpan();
-        for (int i = 0; i < span.Length; i++)
-        {
-            if (span[i] == '.')
-            {
-                int dotIndex = i;
-                int textStart = dotIndex + 2;
-                return new LineSpan(span.Slice(0, dotIndex), span.Slice(textStart, span.Length - textStart));
-            }
-        }
-        
-        return default;
-    }
 }

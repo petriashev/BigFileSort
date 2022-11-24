@@ -1,9 +1,11 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace BigFileSort.Domain;
 
-internal static class BufferExtensions
+public static class BufferExtensions
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PositionOf(this byte[] buffer, byte value, int startIndex = 0)
     {
         for (var i = startIndex; i < buffer.Length; i++)
@@ -13,6 +15,7 @@ internal static class BufferExtensions
         return -1;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PositionOf(this char[] buffer, byte value, int startIndex = 0)
     {
         for (var i = startIndex; i < buffer.Length; i++)
@@ -22,6 +25,7 @@ internal static class BufferExtensions
         return -1;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PositionOf(this in ReadOnlySpan<char> buffer, byte value, int startIndex = 0)
     {
         for (var i = startIndex; i < buffer.Length; i++)
@@ -42,6 +46,17 @@ internal static class BufferExtensions
             }
             return returnStr;
         }
+    }
+    
+    public static Span<char> ToCharArray(this byte[] bytes)
+    {
+        var chars = ArrayPool<char>.Shared.Rent(bytes.Length);
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            chars[i] = (char)bytes[i];
+        }
+
+        return chars;
     }
     
     internal static Span<char> ToCharArrayUnsafe(this byte[] bytes)
