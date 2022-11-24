@@ -1,4 +1,6 @@
 ﻿using System.Text;
+using System.Threading.Tasks.Dataflow;
+using MicroElements.Processing.Pipelines;
 
 namespace BigFileSort.Domain;
 
@@ -24,6 +26,9 @@ public sealed class FileSorter : IFileSorter
             Files = files,
         };
         
+        Pipeline<ParseContext> pipeline = new Pipeline<ParseContext>()
+            .AddStep(context => ReadAndParse(context), settings => settings.MaxDegreeOfParallelism = 2);
+
         while (true)
         {
             using var splitIteration = new Measure($"SplitIteration {iteration}");
@@ -53,6 +58,8 @@ public sealed class FileSorter : IFileSorter
                 Iteration = iteration,
                 Buffer = new MemoryBuffer(inputBytes, 0, countCharsAligned)
             };
+
+            //await ExperimentalMultithreading(countCharsAligned);
             
             SplitIteration(parseContext);
             
@@ -96,25 +103,59 @@ public sealed class FileSorter : IFileSorter
         }
         
         int end = 0;
-    }
 
+        async Task ExperimentalMultithreading(int countCharsAligned)
+        {
+            using (var aa = new Measure($"SplitAsync {iteration}"))
+            {
+                int middle = countCharsAligned / 2;
+                middle = inputBytes.CountCharsAligned(middle);
+
+                var context1 = parseContext with
+                {
+                    Iteration = iteration * 10 + 1,
+                    Buffer = new MemoryBuffer(inputBytes, 0, middle)
+                };
+                var context2 = parseContext with
+                {
+                    Iteration = iteration * 10 + 2,
+                    Buffer = new MemoryBuffer(inputBytes, middle, countCharsAligned - middle)
+                };
+
+                pipeline.Input.Post(context1);
+                pipeline.Input.Post(context2);
+                await pipeline.CompleteAndWait();
+            }
+
+            SortAndOutput(parseContext);
+        }
+    }
+    
     private static void SplitIteration(ParseContext parseContext)
     {
-        var command = parseContext.Command;
-        var fileParser = parseContext.Command.FileParser;
-        int iteration = parseContext.Iteration;
-        
-        using (var readAndParse = new Measure($"ReadAndParse {iteration}"))
+        ReadAndParse(parseContext);
+
+        SortAndOutput(parseContext);
+    }
+    
+    private static void ReadAndParse(ParseContext parseContext)
+    {
+        using (var readAndParse = new Measure($"ReadAndParse {parseContext.Iteration}"))
         {
+            var fileParser = parseContext.Command.FileParser;
             var parseResult = fileParser.ReadAndParse(parseContext);
             readAndParse.AddInfo($"TotalLines = {parseResult.TotalLines}");
         }
-
+    }
+    
+    private static void SortAndOutput(ParseContext parseContext)
+    {
+        var command = parseContext.Command;
         if (parseContext.VirtualTargetIndex.Count > 0)
         {
             KeyValuePair<VirtualString, List<int>>[] orderedByText;
             bool sortNumbersInPlace = true;
-           
+
             using (new Measure("Sort"))
             {
                 orderedByText = parseContext
@@ -129,16 +170,18 @@ public sealed class FileSorter : IFileSorter
                         pair.Value.Sort();
                 }
             }
-            
-            var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
+
+            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration),
+                parseContext.Iteration.ToString());
             parseContext.Files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
-                using var outputFileStream = new FileStream(fileName.Name, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 1.MegabytesInBytes());
-                
+                using var outputFileStream = new FileStream(fileName.Name, FileMode.Create, FileAccess.Write,
+                    FileShare.None, bufferSize: 1.MegabytesInBytes());
+
                 ReadOnlySpan<byte> dotDelimiter = Encoding.UTF8.GetBytes(". ").AsSpan();
                 ReadOnlySpan<byte> newLine = Encoding.UTF8.GetBytes(Environment.NewLine).AsSpan();
-                
+
                 foreach (var linePair in orderedByText)
                 {
                     var text = linePair.Key.AsSpan();
@@ -172,7 +215,8 @@ public sealed class FileSorter : IFileSorter
                 orderedByText = parseContext.TargetIndex.OrderBy(pair => pair.Key).ToArray();
             }
 
-            var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
+            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration),
+                parseContext.Iteration.ToString());
             parseContext.Files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {

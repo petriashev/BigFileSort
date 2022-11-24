@@ -7,10 +7,7 @@ public sealed class BufferFileParser : IFileParser
     /// <inheritdoc />
     public ParseResult ReadAndParse(ParseContext parseContext)
     {
-        ParserState state = new ParserState(
-            parseContext.Buffer,
-            parseContext.Command.Delimiter,
-            parseContext.Command.Encoding);
+        ParserState state = new ParserState(parseContext);
         
         while (state.TryReadLine(isLastLine: false))
         {
@@ -57,23 +54,19 @@ public sealed class BufferFileParser : IFileParser
 
 public sealed class ParserState
 {
-    public MemoryBuffer Buffer { get; }
-    public byte[] Delimiter { get; }
-    public Encoding? Encoding { get; }
-
-    public ParserState(
-        MemoryBuffer buffer,
-        byte[] delimiter,
-        Encoding? encoding)
+    public ParseContext Context { get; }
+    public MemoryBuffer Buffer => Context.Buffer;
+    public byte[] Delimiter => Context.Command.Delimiter;
+    
+    public ParserState(ParseContext parseContext)
     {
-        Buffer = buffer;
-        Delimiter = delimiter;
-        Encoding = encoding;
+        Context = parseContext;
     }
     
     public int CurrentIndex;
     public int StartIndex;
     public int Length;
+    
     public int BytesConsumed;
     public int TotalLines;
 }
