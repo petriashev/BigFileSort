@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace BigFileSort.Domain;
@@ -54,7 +53,7 @@ public readonly struct ValueVirtualString : IEquatable<ValueVirtualString>, ICom
     }
 }
 
-public class VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
+public sealed class VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
 {
     public byte[] Buffer { get; }
     public int Start { get; }
@@ -116,19 +115,19 @@ public static class VirtualStringComparer
     public static IComparer<VirtualString> AsNumber { get; } = new VirtualStringAsNumberComparer();
 }
 
-public class VirtualStringOrdinalComparer : IComparer<ValueVirtualString>
+public sealed class VirtualStringOrdinalComparer : IComparer<ValueVirtualString>
 {
     /// <inheritdoc />
     public int Compare(ValueVirtualString x, ValueVirtualString y) => SpanComparer.CompareAsString(x, y);
 }
 
-public class ValueVirtualStringAsNumberComparer : IComparer<ValueVirtualString>
+public sealed class ValueVirtualStringAsNumberComparer : IComparer<ValueVirtualString>
 {
     /// <inheritdoc />
     public int Compare(ValueVirtualString x, ValueVirtualString y) => SpanComparer.CompareAsNumber(x, y);
 }
 
-public class VirtualStringAsNumberComparer : IComparer<VirtualString>
+public sealed class VirtualStringAsNumberComparer : IComparer<VirtualString>
 {
     /// <inheritdoc />
     public int Compare(VirtualString x, VirtualString y) => SpanComparer.CompareAsNumber(x, y);
@@ -248,23 +247,4 @@ public static class SpanComparer
 
         return buffer;
     }
-}
-
-public readonly struct RentedBuffer<T> : IDisposable
-{
-    public readonly T[] Buffer;
-    public readonly int Length;
-    
-    public RentedBuffer(int length)
-    {
-        Length = length;
-        Buffer = ArrayPool<T>.Shared.Rent(length);
-    }
-
-    public ReadOnlySpan<T> AsSpan() => new (Buffer, 0, Length);
-
-    public void Return() => ArrayPool<T>.Shared.Return(Buffer);
-
-    /// <inheritdoc />
-    public void Dispose() => Return();
 }

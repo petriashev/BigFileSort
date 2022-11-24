@@ -10,7 +10,7 @@ var configuration = JsonConvert.DeserializeObject<BigFileSortConfiguration>(conf
 
 if (configuration.WorkingDirectory != null)
 {
-    configuration.WorkingDirectory = Path.GetFullPath(configuration.WorkingDirectory);
+    configuration = configuration with { WorkingDirectory = Path.GetFullPath(configuration.WorkingDirectory) };
     Directory.CreateDirectory(configuration.WorkingDirectory);
     Directory.SetCurrentDirectory(configuration.WorkingDirectory);
     Console.WriteLine($"WorkingDirectory: {configuration.WorkingDirectory}");
@@ -26,10 +26,15 @@ if (configuration.Command == FileCommand.Generate)
     var outputFileName = settings.OutputFileName;
     var inBytes = settings.SizeInGigabytes?.GigabytesInBytes() ?? settings.SizeInMegabytes?.MegabytesInBytes() ?? 1.GigabytesInBytes();
     
-    using var fileStream = new FileStream(outputFileName, FileMode.OpenOrCreate);
+    Console.WriteLine($"OutputFileName: {outputFileName}");
+    Console.WriteLine($"TargetSizeInBytes: {inBytes}");
+    
+    using var fileStream = new FileStream(outputFileName, FileMode.Create, FileAccess.Write);
     fileStream.Position = 0;
+    
     IFileGenerator fileGenerator = new FileGenerator();
     fileGenerator.GenerateFile(fileStream, new GenerateFileCommand { TargetFileSize = inBytes});
+    Console.WriteLine($"GeneratedSizeInBytes: {new FileInfo(outputFileName).Length}");
     
     Console.WriteLine($"Generated in {stopwatch.Elapsed}");
     return;
@@ -40,22 +45,22 @@ if (configuration.Command == FileCommand.Sort)
     var MAX_BYTE_ARRAY_SIZE = 0X7FEFFFFF;
     
     var fileSorter = new FileSorter();
-    var settings = configuration.Sort;
     var sortFileCommand = new SortFileCommand()
     {
-        InputFileName = settings.InputFileName,
-        OutputFileName = settings.OutputFileName,
+        Configuration = configuration,
+        InputFileName = configuration.Sort.InputFileName,
+        OutputFileName = configuration.Sort.OutputFileName,
         
         // Одним куском минимальное время, но максимальная память
-        MemoryLimitInBytes = settings.MemoryLimitInMegabytes?.MegabytesInBytes() ?? MAX_BYTE_ARRAY_SIZE,
-        Delimiter = settings.Delimiter,
+        MemoryLimitInBytes = configuration.Sort.MemoryLimitInMegabytes?.MegabytesInBytes() ?? MAX_BYTE_ARRAY_SIZE,
+        Delimiter = configuration.Sort.Delimiter,
         
         // BufferFileParser на данный момент самый быстрый
-        FileParser = settings.FileParser == "BufferFileParser"? new BufferFileParser()
-            : settings.FileParser == "StreamReaderParser" ? new StreamReaderParser()
+        FileParser = configuration.Sort.FileParser == "BufferFileParser"? new BufferFileParser()
+            : configuration.Sort.FileParser == "StreamReaderParser" ? new StreamReaderParser()
             : new BufferFileParser(),
     
-        FileMerger = new StreamFileMerger()
+        FileMerger = new StreamFileMerger(configuration)
     };
 
     if (sortFileCommand.MemoryLimitInBytes < 0 || sortFileCommand.MemoryLimitInBytes > MAX_BYTE_ARRAY_SIZE)
@@ -66,6 +71,9 @@ if (configuration.Command == FileCommand.Sort)
     //sortFileCommand = sortFileCommand with { InputFileName = "generated.txt", MemoryLimitInBytes = 1025.MegabytesInBytes() };
     //sortFileCommand = sortFileCommand with { InputFileName = "generated10.txt", MemoryLimitInBytes = MAX_BYTE_ARRAY_SIZE };
 
+    Console.WriteLine($"InputFileName: {sortFileCommand.InputFileName}");
+    Console.WriteLine($"MemoryLimitInBytes: {sortFileCommand.MemoryLimitInBytes}");
+    
     fileSorter.SortFile(sortFileCommand);
 
     Console.WriteLine($"Sorted in {stopwatch.Elapsed}");

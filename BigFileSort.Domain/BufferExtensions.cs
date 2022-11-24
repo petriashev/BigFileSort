@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace BigFileSort.Domain;
 
@@ -48,27 +47,15 @@ public static class BufferExtensions
         }
     }
     
-    public static Span<char> ToCharArray(this byte[] bytes)
+    public static RentedBuffer<char> ToCharArray(this byte[] bytes)
     {
-        var chars = ArrayPool<char>.Shared.Rent(bytes.Length);
+        var rentedBuffer = new RentedBuffer<char>(bytes.Length);
+        
         for (int i = 0; i < bytes.Length; i++)
         {
-            chars[i] = (char)bytes[i];
+            rentedBuffer.Buffer[i] = (char)bytes[i];
         }
 
-        return chars;
-    }
-    
-    internal static Span<char> ToCharArrayUnsafe(this byte[] bytes)
-    {
-        unsafe
-        {
-            fixed(byte* fixedPtr = &bytes[0])
-            {
-                char* charPtr = (char*)fixedPtr;
-
-                return new Span<char>(charPtr, bytes.Length);
-            }
-        }
+        return rentedBuffer;
     }
 }

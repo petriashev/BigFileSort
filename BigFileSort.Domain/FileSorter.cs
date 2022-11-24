@@ -27,8 +27,7 @@ public sealed class FileSorter : IFileSorter
             
             if (iteration > 1)
                 inputBytes.Clear();
-
-            //new StreamReader(inputFileStream).ReadBlock(Unsafe.As<>(inputBytes), 0, memoryLimitInBytes);
+            
             int bytesRead = inputFileStream.Read(inputBytes, 0, memoryLimitInBytes);
             if (bytesRead < memoryLimitInBytes)
                 isLast = true;
@@ -48,7 +47,6 @@ public sealed class FileSorter : IFileSorter
                 Command = command,
                 Buffer = inputBytes,
                 BufferLength = countCharsAligned,
-                TargetIndex = new Dictionary<string, List<int>>(),
                 Files = files,
                 Iteration = iteration
             };
@@ -64,31 +62,20 @@ public sealed class FileSorter : IFileSorter
         
         if (files.Count > 1)
         {
-            Queue<FileName> fileQueue = new Queue<FileName>(files);
-
             using var _ = new Measure("MergeFiles");
 
-            // TODO: Settings
-            bool iterative = false;
-
-            if (!iterative)
+            if (command.Configuration.Sort.MergeIterative)
             {
-                var outputFile = command.BuildOutputName(files);
-                using var fileMerge = new Measure($"MergeOutput: {outputFile.Name}");
-                command.FileMerger.MergeFiles(files.ToArray(), outputFile);
-            }
-            else
-            {
-                while (fileQueue.Count > 1)
+                Queue<FileName> fileQueue = new Queue<FileName>(files);
+                while (fileQueue.Count >= 2)
                 {
                     var filesCount = fileQueue.Count;
-                    var numFilesToMerge = 2;
-                    for (int mergeIter = 0; mergeIter < filesCount; mergeIter+=numFilesToMerge)
+                    for (int mergeIter = 0; mergeIter < filesCount; mergeIter += 2)
                     {
                         var fileName1 = fileQueue.Dequeue();
                         var fileName2 = fileQueue.Dequeue();
                         var fileName3 = command.BuildOutputName(fileName1, fileName2);
-                    
+
                         using var fileMerge = new Measure($"MergeOutput: {fileName3.Name}");
 
                         command.FileMerger.MergeFiles(fileName1, fileName2, fileName3);
@@ -96,6 +83,12 @@ public sealed class FileSorter : IFileSorter
                         fileQueue.Enqueue(fileName3);
                     }
                 }
+            }
+            else
+            {
+                var outputFile = command.BuildOutputName(files);
+                using var fileMerge = new Measure($"MergeOutput: {outputFile.Name}");
+                command.FileMerger.MergeFiles(files.ToArray(), outputFile);
             }
         }
         
@@ -105,7 +98,6 @@ public sealed class FileSorter : IFileSorter
     private static void SplitIteration(ParseContext parseContext)
     {
         var command = parseContext.Command;
-        var index = parseContext.TargetIndex;
         var fileParser = parseContext.Command.FileParser;
         var files = parseContext.Files;
         int iteration = parseContext.Iteration;
@@ -119,6 +111,7 @@ public sealed class FileSorter : IFileSorter
         if (parseContext.VirtualTargetIndex.Count > 0)
         {
             KeyValuePair<ValueVirtualString, List<int>>[] orderedByText;
+            bool sortNumbersInPlace = true;
            
             using (new Measure("Sort"))
             {
@@ -126,17 +119,20 @@ public sealed class FileSorter : IFileSorter
                     .VirtualTargetIndex
                     .OrderBy(pair => pair.Key)
                     .ToArray();
-                
-                // Sort in-place
-                foreach (var pair in orderedByText)
-                    pair.Value.Sort();
+
+                if (sortNumbersInPlace)
+                {
+                    // Sort in-place
+                    foreach (var pair in orderedByText)
+                        pair.Value.Sort();
+                }
             }
             
             var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
             files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
-                using var fileStream = new FileStream(fileName.Name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, bufferSize: 1.MegabytesInBytes());
+                using var outputFileStream = new FileStream(fileName.Name, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 1.MegabytesInBytes());
                 
                 ReadOnlySpan<byte> dotDelimiter = Encoding.UTF8.GetBytes(". ").AsSpan();
                 ReadOnlySpan<byte> newLine = Encoding.UTF8.GetBytes(Environment.NewLine).AsSpan();
@@ -144,27 +140,34 @@ public sealed class FileSorter : IFileSorter
                 foreach (var linePair in orderedByText)
                 {
                     var text = linePair.Key.AsSpan();
-                    var orderedNumbers = linePair.Value;//.OrderBy(n => n);
+                    var orderedNumbers = linePair.Value;
+                    if (!sortNumbersInPlace)
+                    {
+                        var numbers = new List<int>(linePair.Value.Count);
+                        numbers.AddRange(linePair.Value.OrderBy(n => n));
+                        orderedNumbers = numbers;
+                    }
+
                     foreach (var number in orderedNumbers)
                     {
                         using var numberBytes = number.ToSpan();
-                        fileStream.Write(numberBytes.AsSpan());
-                        fileStream.Write(dotDelimiter);
-                        fileStream.Write(text);
-                        fileStream.Write(newLine);
+                        outputFileStream.Write(numberBytes.AsSpan());
+                        outputFileStream.Write(dotDelimiter);
+                        outputFileStream.Write(text);
+                        outputFileStream.Write(newLine);
                     }
                 }
 
-                fileStream.Flush();
+                outputFileStream.Flush();
             }
         }
 
-        if (index.Count > 0)
+        if (parseContext.TargetIndex.Count > 0)
         {
             KeyValuePair<string, List<int>>[] orderedByText;
             using (new Measure("Sort"))
             {
-                orderedByText = index.OrderBy(pair => pair.Key).ToArray();
+                orderedByText = parseContext.TargetIndex.OrderBy(pair => pair.Key).ToArray();
             }
 
             var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());

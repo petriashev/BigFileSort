@@ -53,7 +53,7 @@ public sealed class BufferFileParser : IFileParser
     }
 }
 
-public class ParserState
+public sealed class ParserState
 {
     public byte[] Buffer { get; }
     public byte[] Delimiter { get; }
@@ -127,6 +127,6 @@ public static class BufferParser
         state.BytesConsumed += state.Length + advance;
         state.TotalLines += 1;
         
-        return true;
+        return state.Length > 0;
     }
 }

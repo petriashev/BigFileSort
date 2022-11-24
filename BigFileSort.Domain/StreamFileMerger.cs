@@ -4,10 +4,12 @@ namespace BigFileSort.Domain;
 
 public sealed class StreamFileMerger : IFileMerger
 {
+    private readonly BigFileSortConfiguration _configuration;
     private readonly FileStreamOptions _fileStreamOptions;
 
-    public StreamFileMerger(FileStreamOptions? fileStreamOptions = null)
+    public StreamFileMerger(BigFileSortConfiguration configuration, FileStreamOptions? fileStreamOptions = null)
     {
+        _configuration = configuration;
         _fileStreamOptions = fileStreamOptions ?? new FileStreamOptions{BufferSize = 100.MegabytesInBytes(), Access = FileAccess.Read, Options = FileOptions.SequentialScan};
     }
 
@@ -128,13 +130,16 @@ public sealed class StreamFileMerger : IFileMerger
                         readers[i]?.Dispose();
                         readers[i] = null;
 
-                        try
+                        if (_configuration.Sort.DeleteTempFiles)
                         {
-                            File.Delete(files[i].Name);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e);
+                            try
+                            {
+                                File.Delete(files[i].Name);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e);
+                            }
                         }
                     }
                     else
