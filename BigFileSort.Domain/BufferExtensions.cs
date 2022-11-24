@@ -15,6 +15,16 @@ public static class BufferExtensions
     }
     
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int PositionOf(this in ReadOnlySpan<byte> buffer, byte value, int startIndex = 0)
+    {
+        for (var i = startIndex; i < buffer.Length; i++)
+            if (buffer[i] == value)
+                return i;
+
+        return -1;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int PositionOf(this char[] buffer, byte value, int startIndex = 0)
     {
         for (var i = startIndex; i < buffer.Length; i++)

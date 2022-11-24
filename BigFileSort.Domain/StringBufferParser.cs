@@ -5,7 +5,7 @@ public sealed class StringBufferParser : IFileParser
     /// <inheritdoc />
     public ParseResult ReadAndParse(ParseContext parseContext)
     {
-        var sourceBuffer = parseContext.SourceBuffer;
+        var sourceBuffer = parseContext.Buffer.AsMemoryStream();
         using var streamReader = new StreamReader(sourceBuffer);
         var textBlock = streamReader.ReadToEnd();
         var textSpan = textBlock.AsSpan();

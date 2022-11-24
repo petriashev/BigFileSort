@@ -5,7 +5,7 @@ public sealed class StreamReaderParser : IFileParser
     /// <inheritdoc />
     public ParseResult ReadAndParse(ParseContext parseContext)
     {
-        var sourceBuffer = parseContext.SourceBuffer;
+        var sourceBuffer = parseContext.Buffer.AsMemoryStream();
         using var streamReader = new StreamReader(sourceBuffer);
      
         int totalLines = 0;

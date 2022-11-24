@@ -11,19 +11,25 @@ public sealed class FileSorter : IFileSorter
         
         var memoryLimitInBytes = command.MemoryLimitInBytes;
         
-        long position = 0;
+        long filePosition = 0;
         int iteration = 1;
         bool isLast = false;
 
         byte[] inputBytes = new byte[memoryLimitInBytes];
         var files = new List<FileName>();
         
+        var parseContext = new ParseContext
+        {
+            Command = command,
+            Files = files,
+        };
+        
         while (true)
         {
             using var splitIteration = new Measure($"SplitIteration {iteration}");
             
             var inputFileStream = File.OpenRead(command.InputFileName);
-            inputFileStream.Position = position;
+            inputFileStream.Position = filePosition;
             
             if (iteration > 1)
                 inputBytes.Clear();
@@ -42,13 +48,10 @@ public sealed class FileSorter : IFileSorter
             if (countCharsAligned == 0)
                 break;
             
-            var parseContext = new ParseContext
+            parseContext = parseContext with
             {
-                Command = command,
-                Buffer = inputBytes,
-                BufferLength = countCharsAligned,
-                Files = files,
-                Iteration = iteration
+                Iteration = iteration,
+                Buffer = new MemoryBuffer(inputBytes, 0, countCharsAligned)
             };
             
             SplitIteration(parseContext);
@@ -56,7 +59,7 @@ public sealed class FileSorter : IFileSorter
             if (isLast)
                 break;
 
-            position += countCharsAligned;
+            filePosition += countCharsAligned;
             iteration++;
         }
         
@@ -99,7 +102,6 @@ public sealed class FileSorter : IFileSorter
     {
         var command = parseContext.Command;
         var fileParser = parseContext.Command.FileParser;
-        var files = parseContext.Files;
         int iteration = parseContext.Iteration;
         
         using (var readAndParse = new Measure($"ReadAndParse {iteration}"))
@@ -110,7 +112,7 @@ public sealed class FileSorter : IFileSorter
 
         if (parseContext.VirtualTargetIndex.Count > 0)
         {
-            KeyValuePair<ValueVirtualString, List<int>>[] orderedByText;
+            KeyValuePair<VirtualString, List<int>>[] orderedByText;
             bool sortNumbersInPlace = true;
            
             using (new Measure("Sort"))
@@ -129,7 +131,7 @@ public sealed class FileSorter : IFileSorter
             }
             
             var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
-            files.Add(fileName);
+            parseContext.Files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
                 using var outputFileStream = new FileStream(fileName.Name, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 1.MegabytesInBytes());
@@ -171,7 +173,7 @@ public sealed class FileSorter : IFileSorter
             }
 
             var fileName = new FileName(string.Format(command.OutputFileName, iteration), iteration.ToString());
-            files.Add(fileName);
+            parseContext.Files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
                 using var streamWriter = new StreamWriter(fileName.Name);

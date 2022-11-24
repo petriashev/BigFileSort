@@ -44,7 +44,6 @@ if (configuration.Command == FileCommand.Sort)
 {
     var MAX_BYTE_ARRAY_SIZE = 0X7FEFFFFF;
     
-    var fileSorter = new FileSorter();
     var sortFileCommand = new SortFileCommand()
     {
         Configuration = configuration,
@@ -74,6 +73,7 @@ if (configuration.Command == FileCommand.Sort)
     Console.WriteLine($"InputFileName: {sortFileCommand.InputFileName}");
     Console.WriteLine($"MemoryLimitInBytes: {sortFileCommand.MemoryLimitInBytes}");
     
+    IFileSorter fileSorter = new FileSorter();
     fileSorter.SortFile(sortFileCommand);
 
     Console.WriteLine($"Sorted in {stopwatch.Elapsed}");

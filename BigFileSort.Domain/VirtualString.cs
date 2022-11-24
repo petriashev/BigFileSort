@@ -3,68 +3,11 @@ using System.Text;
 
 namespace BigFileSort.Domain;
 
-public readonly struct ValueVirtualString : IEquatable<ValueVirtualString>, IComparable<ValueVirtualString>
+public readonly struct VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
 {
     public byte[] Buffer { get; }
     public int Start { get; }
     public int Length { get; }
-
-    public ValueVirtualString(byte[] buffer, int start, int length)
-    {
-        Buffer = buffer;
-        Start = start;
-        Length = length;
-    }
-    
-    public ReadOnlySpan<byte> AsSpan() => new (Buffer, Start, Length);
-
-    public string AsString() => Encoding.UTF8.GetString(AsSpan());
-    
-    /// <inheritdoc />
-    public override string ToString() => AsString();
-
-    public int ToInt() => AsSpan().ToInt();
-
-    public static implicit operator ReadOnlySpan<byte>(ValueVirtualString value) => value.AsSpan();
-    
-    public static bool operator < (ValueVirtualString line1, ValueVirtualString line2) => SpanComparer.CompareAsString(line1, line2) < 0;
-
-    public static bool operator > (ValueVirtualString line1, ValueVirtualString line2) => SpanComparer.CompareAsString(line1, line2) > 0;
-    
-    public static bool operator == (ValueVirtualString line1, ValueVirtualString line2) => SpanComparer.CompareAsString(line1, line2) == 0;
-
-    public static bool operator !=(ValueVirtualString line1, ValueVirtualString line2) => !(line1 == line2);
-
-    /// <inheritdoc />
-    public bool Equals(ValueVirtualString other) => SpanComparer.CompareAsString(this, other) == 0;
-
-    /// <inheritdoc />
-    public int CompareTo(ValueVirtualString other) => SpanComparer.CompareAsString(this, other);
-
-    /// <inheritdoc />
-    public override bool Equals(object? obj) => obj is ValueVirtualString other && Equals(other);
-
-    /// <inheritdoc />
-    public override int GetHashCode()
-    {
-        var hashCode = new HashCode();
-        hashCode.AddBytes(AsSpan());
-        return hashCode.ToHashCode();
-    }
-}
-
-public sealed class VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
-{
-    public byte[] Buffer { get; }
-    public int Start { get; }
-    public int Length { get; }
-    
-    public VirtualString(ValueVirtualString virtualString)
-    {
-        Buffer = virtualString.Buffer;
-        Start = virtualString.Start;
-        Length = virtualString.Length;
-    }
 
     public VirtualString(byte[] buffer, int start, int length)
     {
@@ -73,13 +16,19 @@ public sealed class VirtualString : IEquatable<VirtualString>, IComparable<Virtu
         Length = length;
     }
     
+    public VirtualString(MemoryBuffer buffer, int start, int length)
+    {
+        Buffer = buffer.Buffer;
+        Start = buffer.Start + start;
+        Length = length;
+    }
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ReadOnlySpan<byte> AsSpan() => new (Buffer, Start, Length);
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int ToInt() => AsSpan().ToInt();
 
-    public string AsString() => Encoding.UTF8.GetString(AsSpan());
-    
-    /// <inheritdoc />
-    public override string ToString() => AsString();
-    
     public static implicit operator ReadOnlySpan<byte>(VirtualString value) => value.AsSpan();
     
     public static bool operator < (VirtualString line1, VirtualString line2) => SpanComparer.CompareAsString(line1, line2) < 0;
@@ -106,28 +55,27 @@ public sealed class VirtualString : IEquatable<VirtualString>, IComparable<Virtu
         hashCode.AddBytes(AsSpan());
         return hashCode.ToHashCode();
     }
+    
+    /// <summary> Returns string representation. </summary>
+    public string AsString() => Encoding.UTF8.GetString(AsSpan());
+    
+    /// <inheritdoc />
+    public override string ToString() => AsString();
 }
 
 public static class VirtualStringComparer
 {
-    public static IComparer<ValueVirtualString> Ordinal { get; } = new VirtualStringOrdinalComparer();
-    public static IComparer<ValueVirtualString> ValueAsNumber { get; } = new ValueVirtualStringAsNumberComparer();
-    public static IComparer<VirtualString> AsNumber { get; } = new VirtualStringAsNumberComparer();
+    public static IComparer<VirtualString> Ordinal { get; } = new VirtualStringOrdinalComparer();
+    public static IComparer<VirtualString> ValueAsNumber { get; } = new ValueVirtualStringAsNumberComparer();
 }
 
-public sealed class VirtualStringOrdinalComparer : IComparer<ValueVirtualString>
+public sealed class VirtualStringOrdinalComparer : IComparer<VirtualString>
 {
     /// <inheritdoc />
-    public int Compare(ValueVirtualString x, ValueVirtualString y) => SpanComparer.CompareAsString(x, y);
+    public int Compare(VirtualString x, VirtualString y) => SpanComparer.CompareAsString(x, y);
 }
 
-public sealed class ValueVirtualStringAsNumberComparer : IComparer<ValueVirtualString>
-{
-    /// <inheritdoc />
-    public int Compare(ValueVirtualString x, ValueVirtualString y) => SpanComparer.CompareAsNumber(x, y);
-}
-
-public sealed class VirtualStringAsNumberComparer : IComparer<VirtualString>
+public sealed class ValueVirtualStringAsNumberComparer : IComparer<VirtualString>
 {
     /// <inheritdoc />
     public int Compare(VirtualString x, VirtualString y) => SpanComparer.CompareAsNumber(x, y);
@@ -170,6 +118,7 @@ public static class SpanComparer
         return 0;
     }
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int ToInt(this in ReadOnlySpan<byte> span)
     {
         int number = 0;

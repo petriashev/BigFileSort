@@ -11,43 +11,45 @@ public sealed class BufferFileParser : IFileParser
             parseContext.Buffer,
             parseContext.Command.Delimiter,
             parseContext.Command.Encoding);
-
+        
         while (state.TryReadLine(isLastLine: false))
         {
-            var line = new ValueVirtualString(parseContext.Buffer, state.StartIndex, state.Length);
-            if (Split(line, out var number, out var text))
-            {
-                parseContext.AddLineToIndex(text, number.ToInt());
-            }
-            else
-            {
-                //TODO Error
-                Console.WriteLine();
-            }
+            SplitAndAddToIndex(parseContext, state);
         }
         
-        if (state.BytesConsumed < parseContext.BufferLength)
+        if (state.BytesConsumed < state.Buffer.Length)
         {
             if (state.TryReadLine(isLastLine: true))
             {
-                var line = new ValueVirtualString(parseContext.Buffer, state.StartIndex, state.Length);
-                Split(line, out var number, out var text);
-                parseContext.AddLineToIndex(text, number.ToInt());
+                SplitAndAddToIndex(parseContext, state);
             }
         }
 
         return new ParseResult(state.TotalLines);
     }
     
-    private static bool Split(in ValueVirtualString virtualString, out ValueVirtualString number, out ValueVirtualString text)
+    private static void SplitAndAddToIndex(ParseContext parseContext, ParserState state)
+    {
+        var line = new VirtualString(state.Buffer, state.StartIndex, state.Length);
+        if (Split(line, out var number, out var text))
+        {
+            parseContext.AddLineToIndex(text, number.ToInt());
+        }
+        else
+        {
+            Console.WriteLine($"Split error. Line {state.TotalLines}");
+        }
+    }
+    
+    private static bool Split(in VirtualString virtualString, out VirtualString number, out VirtualString text)
     {
         int dotIndexAbs = virtualString.Buffer.PositionOf((byte)'.', virtualString.Start);
         int textIndexAbs = dotIndexAbs + 2;
         int textIndex = textIndexAbs - virtualString.Start;
         int dotIndex = dotIndexAbs - virtualString.Start;
         
-        number = new ValueVirtualString(virtualString.Buffer, virtualString.Start, dotIndex);
-        text = new ValueVirtualString(virtualString.Buffer, textIndexAbs, virtualString.Length - textIndex);
+        number = new VirtualString(virtualString.Buffer, virtualString.Start, dotIndex);
+        text = new VirtualString(virtualString.Buffer, textIndexAbs, virtualString.Length - textIndex);
             
         return number.Length > 0 && text.Length > 0;
     }
@@ -55,17 +57,20 @@ public sealed class BufferFileParser : IFileParser
 
 public sealed class ParserState
 {
-    public byte[] Buffer { get; }
+    public MemoryBuffer Buffer { get; }
     public byte[] Delimiter { get; }
     public Encoding? Encoding { get; }
 
-    public ParserState(byte[] buffer, byte[] delimiter, Encoding? encoding)
+    public ParserState(
+        MemoryBuffer buffer,
+        byte[] delimiter,
+        Encoding? encoding)
     {
         Buffer = buffer;
         Delimiter = delimiter;
         Encoding = encoding;
     }
-
+    
     public int CurrentIndex;
     public int StartIndex;
     public int Length;
@@ -77,7 +82,7 @@ public static class BufferParser
 {
     public static bool TryReadLine(this ParserState state, bool isLastLine)
     {
-        byte[] buffer = state.Buffer;
+        var buffer = state.Buffer.AsSpan();
         byte[] delimiter = state.Delimiter;
         
         #region Delimiter search

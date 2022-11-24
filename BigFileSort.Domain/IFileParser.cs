@@ -15,19 +15,15 @@ public record ParseContext
 {
     public SortFileCommand Command { get; init; }
     
-    public byte[] Buffer { get; init; }
-    
-    public int BufferLength { get; init; }
-
-    public MemoryStream SourceBuffer => new MemoryStream(Buffer, 0, BufferLength);
-
-    public Dictionary<string, List<int>> TargetIndex { get; init; } = new();
-
-    public Dictionary<ValueVirtualString, List<int>> VirtualTargetIndex { get; init; } = new();
-    
     public List<FileName> Files { get; init; }
     
+    public Dictionary<string, List<int>> TargetIndex { get; init; } = new();
+
+    public Dictionary<VirtualString, List<int>> VirtualTargetIndex { get; init; } = new();
+    
     public int Iteration { get; init; }
+    
+    public MemoryBuffer Buffer { get; init; }
 }
 
 public record ParseResult(int TotalLines);

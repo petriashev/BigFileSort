@@ -8,7 +8,7 @@ public sealed class SpanFileParser
     /// <inheritdoc />
     public async Task<ParseResult> ReadAndParse(ParseContext parseContext)
     {
-        var sourceBuffer = parseContext.SourceBuffer;
+        var sourceBuffer = parseContext.Buffer.AsMemoryStream();
         byte[] delimiter = parseContext.Command.Delimiter;
         
         var pipeReader = PipeReader.Create(sourceBuffer);
