@@ -16,18 +16,15 @@ public static class ParseContextExtensions
     
     public static void AddLineToIndex(this ParseContext parseContext, VirtualString text, int number)
     {
-        //lock (parseContext.VirtualTargetIndex)
+        var targetIndex = parseContext.VirtualTargetIndex;
+
+        if (targetIndex.TryGetValue(text, out var numbers))
         {
-            var targetIndex = parseContext.VirtualTargetIndex;
-   
-            if (targetIndex.TryGetValue(text, out var numbers))
-            {
-                numbers.Add(number);
-            }
-            else
-            {
-                targetIndex.Add(text, new List<int>(64) { number });
-            }
+            numbers.Add(number);
+        }
+        else
+        {
+            targetIndex.Add(text, new List<int>(64) { number });
         }
     }
 }

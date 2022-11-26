@@ -3,11 +3,14 @@ using System.Text;
 
 namespace BigFileSort.Domain;
 
+/// <summary>
+/// Virtual string allows not to allocate new strings. It uses shared buffer and string position and length.
+/// </summary>
 public readonly struct VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
 {
-    public byte[] Buffer { get; }
-    public int Start { get; }
-    public int Length { get; }
+    public readonly byte[] Buffer;
+    public readonly int Start;
+    public readonly int Length;
 
     public VirtualString(byte[] buffer, int start, int length)
     {
@@ -40,7 +43,11 @@ public readonly struct VirtualString : IEquatable<VirtualString>, IComparable<Vi
     public static bool operator !=(VirtualString line1, VirtualString line2) => !(line1 == line2);
 
     /// <inheritdoc />
-    public bool Equals(VirtualString other) => SpanComparer.CompareAsString(this, other) == 0;
+    public bool Equals(VirtualString other)
+    {
+        if (Length != other.Length) return false;
+        return SpanComparer.CompareAsString(this, other) == 0;
+    }
 
     /// <inheritdoc />
     public int CompareTo(VirtualString other) => SpanComparer.CompareAsString(this, other);
@@ -51,6 +58,10 @@ public readonly struct VirtualString : IEquatable<VirtualString>, IComparable<Vi
     /// <inheritdoc />
     public override int GetHashCode()
     {
+        // Marvin class copied from .net sources. It is some faster then HashCode below.
+        return Marvin.ComputeHash32(ref Buffer[Start], (uint)Length, (uint)Marvin.DefaultSeed, (uint)(Marvin.DefaultSeed >> 32));
+        
+        // HashCode by bytes.
         var hashCode = new HashCode();
         hashCode.AddBytes(AsSpan());
         return hashCode.ToHashCode();
@@ -195,5 +206,20 @@ public static class SpanComparer
         }
 
         return buffer;
+    }
+    
+    public static int ToVirtualString(this int number, byte[] buffer)
+    {
+        int bufferLength = CountDigits((uint)number);
+        
+        int current = number;
+        for (int i = 0; i < bufferLength; i++)
+        {
+            var res = Math.DivRem(current, 10);
+            buffer[bufferLength - i - 1] = (byte)(res.Remainder + 48);
+            current = res.Quotient;
+        }
+
+        return bufferLength;
     }
 }

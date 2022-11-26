@@ -56,7 +56,9 @@ public sealed class FileSorter : IFileSorter
             parseContext = parseContext with
             {
                 Iteration = iteration,
-                Buffer = new MemoryBuffer(inputBytes, 0, countCharsAligned)
+                Buffer = new MemoryBuffer(inputBytes, 0, countCharsAligned),
+                VirtualTargetIndex = new (),
+                TargetIndex = new ()
             };
 
             //await ExperimentalMultithreading(countCharsAligned);
@@ -171,8 +173,7 @@ public sealed class FileSorter : IFileSorter
                 }
             }
 
-            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration),
-                parseContext.Iteration.ToString());
+            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration), parseContext.Iteration.ToString());
             parseContext.Files.Add(fileName);
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
@@ -182,6 +183,7 @@ public sealed class FileSorter : IFileSorter
                 ReadOnlySpan<byte> dotDelimiter = Encoding.UTF8.GetBytes(". ").AsSpan();
                 ReadOnlySpan<byte> newLine = Encoding.UTF8.GetBytes(Environment.NewLine).AsSpan();
 
+                byte[] numberBuffer = new byte[16];
                 foreach (var linePair in orderedByText)
                 {
                     var text = linePair.Key.AsSpan();
@@ -195,8 +197,8 @@ public sealed class FileSorter : IFileSorter
 
                     foreach (var number in orderedNumbers)
                     {
-                        using var numberBytes = number.ToSpan();
-                        outputFileStream.Write(numberBytes.AsSpan());
+                        int numberAsStringLength = number.ToVirtualString(numberBuffer);
+                        outputFileStream.Write(numberBuffer, 0, numberAsStringLength);
                         outputFileStream.Write(dotDelimiter);
                         outputFileStream.Write(text);
                         outputFileStream.Write(newLine);
