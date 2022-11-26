@@ -2,9 +2,16 @@ using System.Text;
 
 namespace BigFileSort.Domain;
 
+/// <summary>
+/// File sorter.
+/// </summary>
 public interface IFileSorter
 {
-    void SortFile(SortFileCommand command);
+    /// <summary>
+    /// Sorts file.
+    /// </summary>
+    /// <param name="command">Sort parameters.</param>
+    ParseMetrics SortFile(SortFileCommand command);
 }
 
 public record SortFileCommand

@@ -71,10 +71,11 @@ if (configuration.Command == FileCommand.Sort)
     //sortFileCommand = sortFileCommand with { InputFileName = "generated10.txt", MemoryLimitInBytes = MAX_BYTE_ARRAY_SIZE };
 
     Console.WriteLine($"InputFileName: {sortFileCommand.InputFileName}");
+    Console.WriteLine($"FileParser: {sortFileCommand.FileParser.GetType().Name}");
     Console.WriteLine($"MemoryLimitInBytes: {sortFileCommand.MemoryLimitInBytes}");
     
     IFileSorter fileSorter = new FileSorter();
-    fileSorter.SortFile(sortFileCommand);
+    var metrics = fileSorter.SortFile(sortFileCommand);
 
     Console.WriteLine($"Sorted in {stopwatch.Elapsed}");
 }

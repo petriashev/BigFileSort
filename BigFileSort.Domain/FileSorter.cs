@@ -1,13 +1,12 @@
 ﻿using System.Text;
 using System.Threading.Tasks.Dataflow;
-using MicroElements.Processing.Pipelines;
 
 namespace BigFileSort.Domain;
 
 public sealed class FileSorter : IFileSorter
 {
     /// <inheritdoc />
-    public void SortFile(SortFileCommand command)
+    public ParseMetrics SortFile(SortFileCommand command)
     {
         using var sortFile = new Measure($"SortFile");
         
@@ -26,9 +25,6 @@ public sealed class FileSorter : IFileSorter
             Files = files,
         };
         
-        Pipeline<ParseContext> pipeline = new Pipeline<ParseContext>()
-            .AddStep(context => ReadAndParse(context), settings => settings.MaxDegreeOfParallelism = 2);
-
         while (true)
         {
             using var splitIteration = new Measure($"SplitIteration {iteration}");
@@ -60,11 +56,18 @@ public sealed class FileSorter : IFileSorter
                 VirtualTargetIndex = new (),
                 TargetIndex = new ()
             };
+            
+            if (parseContext.Command.Configuration.Sort.UseMultithreading && countCharsAligned > 100.MegabytesInBytes())
+            {
+                ExperimentalReadAndParseMultithreaded(countCharsAligned);
+            }
+            else
+            {
+                ReadAndParse(parseContext);
+            }
+            
+            SortAndOutput(parseContext);
 
-            //await ExperimentalMultithreading(countCharsAligned);
-            
-            SplitIteration(parseContext);
-            
             if (isLast)
                 break;
 
@@ -104,50 +107,62 @@ public sealed class FileSorter : IFileSorter
             }
         }
         
-        int end = 0;
+        return parseContext.Metrics;
 
-        async Task ExperimentalMultithreading(int countCharsAligned)
+        void ExperimentalReadAndParseMultithreaded(int countCharsAligned)
         {
-            using (var aa = new Measure($"SplitAsync {iteration}"))
+            using var _ = new Measure($"SplitAsync {iteration}");
+            
+            var threads = parseContext.Command.Configuration.Sort.Threads;
+            var readAndParseQueue = new BufferBlock<ParseContext>();
+            var readAndParse = new ActionBlock<ParseContext>(context => ReadAndParse(context), new ExecutionDataflowBlockOptions{ MaxDegreeOfParallelism = threads });
+            readAndParseQueue.LinkTo(readAndParse, new DataflowLinkOptions { PropagateCompletion = true });
+                
+            int bytesForPart = countCharsAligned / threads;
+
+            int partStart = 0;
+            int partLength = bytesForPart;
+            int total = 0;
+
+            for (int n = 1; n <= threads; n++)
             {
-                int middle = countCharsAligned / 2;
-                middle = inputBytes.CountCharsAligned(middle);
-
-                var context1 = parseContext with
+                if (n == threads)
                 {
-                    Iteration = iteration * 10 + 1,
-                    Buffer = new MemoryBuffer(inputBytes, 0, middle)
-                };
-                var context2 = parseContext with
+                    partLength = countCharsAligned - partStart;
+                }
+                else
                 {
-                    Iteration = iteration * 10 + 2,
-                    Buffer = new MemoryBuffer(inputBytes, middle, countCharsAligned - middle)
+                    partLength = inputBytes.CountCharsAligned(partStart + partLength) - partStart;
+                }
+                
+                var context = parseContext with
+                {
+                    Iteration = iteration * 10 + n,
+                    Buffer = new MemoryBuffer(inputBytes, partStart, partLength)
                 };
+                
+                readAndParseQueue.Post(context);
+                partStart += partLength;
 
-                pipeline.Input.Post(context1);
-                pipeline.Input.Post(context2);
-                await pipeline.CompleteAndWait();
+                total += context.Buffer.Length;
             }
+            
+            readAndParseQueue.Complete();
 
-            SortAndOutput(parseContext);
+            while (!readAndParse.Completion.IsCompleted)
+            {
+                Thread.Sleep(100);
+            }
         }
     }
-    
-    private static void SplitIteration(ParseContext parseContext)
-    {
-        ReadAndParse(parseContext);
 
-        SortAndOutput(parseContext);
-    }
-    
     private static void ReadAndParse(ParseContext parseContext)
     {
-        using (var readAndParse = new Measure($"ReadAndParse {parseContext.Iteration}"))
-        {
-            var fileParser = parseContext.Command.FileParser;
-            var parseResult = fileParser.ReadAndParse(parseContext);
-            readAndParse.AddInfo($"TotalLines = {parseResult.TotalLines}");
-        }
+        using var readAndParse = new Measure($"ReadAndParse {parseContext.Iteration}");
+        
+        var fileParser = parseContext.Command.FileParser;
+        var parseResult = fileParser!.ReadAndParse(parseContext);
+        readAndParse.AddInfo($"TotalLines = {parseResult.TotalLines}");
     }
     
     private static void SortAndOutput(ParseContext parseContext)
@@ -217,9 +232,9 @@ public sealed class FileSorter : IFileSorter
                 orderedByText = parseContext.TargetIndex.OrderBy(pair => pair.Key).ToArray();
             }
 
-            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration),
-                parseContext.Iteration.ToString());
+            var fileName = new FileName(string.Format(command.OutputFileName, parseContext.Iteration), parseContext.Iteration.ToString());
             parseContext.Files.Add(fileName);
+            
             using (new Measure($"WriteSorted {fileName.ShortFileName}"))
             {
                 using var streamWriter = new StreamWriter(fileName.Name);
@@ -253,10 +268,11 @@ public static class ReadExtensions
 {
     public static void Clear(this byte[] inputBytes)
     {
-        for (var i = 0; i < inputBytes.Length; i++)
-        {
-            inputBytes[i] = 0;
-        }
+        // for (var i = 0; i < inputBytes.Length; i++)
+        // {
+        //     inputBytes[i] = 0;
+        // }     
+        Array.Clear(inputBytes, 0, inputBytes.Length);
     }
 
     public static int CountCharsAligned(this byte[] inputBytes, int count)

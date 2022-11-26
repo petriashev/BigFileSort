@@ -44,4 +44,14 @@ public class SortFileConfiguration
     /// Удалять промежуточные файлы после мержа.
     /// </summary>
     public bool DeleteTempFiles { get; init; } = false;
+    
+    /// <summary>
+    /// Использовать многопоточный парсинг и индексирование.
+    /// </summary>
+    public bool UseMultithreading { get; init; } = false;
+    
+    /// <summary>
+    /// Количество потоков при использовании UseMultithreading. 
+    /// </summary>
+    public int Threads { get; init; } = 2;
 }

@@ -122,8 +122,13 @@ public static class BufferParser
         // next line start
         state.CurrentIndex = delimiterIndex + advance;
 
-        state.BytesConsumed += state.Length + advance;
-        state.TotalLines += 1;
+        var bytesConsumed = state.Length + advance;
+        var lines = 1;
+        
+        state.TotalLines += lines;
+        state.BytesConsumed += bytesConsumed;
+        
+        state.Context.Metrics.Increment(lines, bytesConsumed);
         
         return state.Length > 0;
     }

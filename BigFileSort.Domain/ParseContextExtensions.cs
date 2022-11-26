@@ -10,7 +10,7 @@ public static class ParseContextExtensions
         }
         else
         {
-            parseContext.TargetIndex.Add(text, new List<int>(4) { number });
+            parseContext.TargetIndex.Add(text, new List<int>(64) { number });
         }
     }
     
@@ -18,13 +18,37 @@ public static class ParseContextExtensions
     {
         var targetIndex = parseContext.VirtualTargetIndex;
 
-        if (targetIndex.TryGetValue(text, out var numbers))
+        if (!parseContext.Command.Configuration.Sort.UseMultithreading)
         {
-            numbers.Add(number);
+            if (targetIndex.TryGetValue(text, out var numbers))
+            {
+                numbers.Add(number);
+                parseContext.Metrics.SetNumbersCount(numbers.Count);
+            }
+            else
+            {
+                targetIndex.TryAdd(text, new List<int>(parseContext.Metrics.MaxNumbersPerString) { number });
+            }
         }
         else
         {
-            targetIndex.Add(text, new List<int>(64) { number });
+            if (targetIndex.TryGetValue(text, out var numbers))
+            {
+                lock (numbers)
+                {
+                    numbers.Add(number);
+                }
+            
+                parseContext.Metrics.SetNumbersCount(numbers.Count);
+            }
+            else
+            {
+                var isAdded = targetIndex.TryAdd(text, new List<int>(parseContext.Metrics.MaxNumbersPerString) { number });
+                if (!isAdded)
+                {
+                    AddLineToIndex(parseContext, text, number);
+                }
+            }
         }
     }
 }
