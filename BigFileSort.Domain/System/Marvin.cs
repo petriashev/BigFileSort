@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace System
+namespace BigFileSort.System
 {
     /// <summary>
     /// Marvin class copy from .net sources to calculate string HashCode. 

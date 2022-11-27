@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using BigFileSort.Domain;
+using BigFileSort.System;
 
 namespace BigFileSort;
 

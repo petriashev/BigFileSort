@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.System;
 
 public static class BufferExtensions
 {

@@ -1,4 +1,6 @@
-﻿namespace BigFileSort.Domain;
+﻿using BigFileSort.System;
+
+namespace BigFileSort.Parsing;
 
 public static class ParseContextExtensions
 {

@@ -1,7 +1,11 @@
 ﻿using System.Buffers;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.System;
 
+/// <summary>
+/// Can be used in temp buffer allocation.
+/// </summary>
+/// <typeparam name="T">The type for buffer.</typeparam>
 public readonly struct RentedBuffer<T> : IDisposable
 {
     public readonly T[] Buffer;

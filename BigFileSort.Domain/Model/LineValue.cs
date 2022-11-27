@@ -1,4 +1,4 @@
-﻿namespace BigFileSort.Domain;
+﻿namespace BigFileSort.Model;
 
 public readonly struct LineValue
 {

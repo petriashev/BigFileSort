@@ -1,6 +1,8 @@
 ﻿using System.Collections.Concurrent;
+using BigFileSort.Sorting;
+using BigFileSort.System;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Parsing;
 
 /// <summary>
 /// Represents file parser.

@@ -1,6 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
+using BigFileSort.Model;
+using BigFileSort.Parsing;
+using BigFileSort.System;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Sorting;
 
 public sealed class StreamFileMerger : IFileMerger
 {

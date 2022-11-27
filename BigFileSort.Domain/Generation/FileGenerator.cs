@@ -1,4 +1,6 @@
-﻿namespace BigFileSort.Domain;
+﻿using BigFileSort.System;
+
+namespace BigFileSort.Generation;
 
 public sealed class FileGenerator : IFileGenerator
 {

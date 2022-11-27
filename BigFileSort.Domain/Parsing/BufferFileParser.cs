@@ -1,6 +1,6 @@
-﻿using System.Text;
+﻿using BigFileSort.System;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Parsing;
 
 public sealed class BufferFileParser : IFileParser
 {

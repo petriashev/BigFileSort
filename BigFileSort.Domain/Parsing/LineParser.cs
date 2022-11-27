@@ -1,7 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
+using BigFileSort.Model;
+using BigFileSort.System;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Parsing;
 
 public static class LineParser
 {

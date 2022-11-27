@@ -1,6 +1,7 @@
 using System.Text;
+using BigFileSort.Parsing;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Sorting;
 
 /// <summary>
 /// File sorter.
@@ -20,7 +21,7 @@ public record SortFileCommand
     
     public string InputFileName { get; init; }
     public string OutputFileName { get; init; }
-    public int MemoryLimitInBytes { get; init; }
+    public int BuggerSizeInBytes { get; init; }
     public byte[] Delimiter { get; init; }
     public IFileParser? FileParser { get; init; }
     public IFileMerger FileMerger { get; init; }

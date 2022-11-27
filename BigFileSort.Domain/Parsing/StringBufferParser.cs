@@ -1,4 +1,7 @@
-﻿namespace BigFileSort.Domain;
+﻿using BigFileSort.Model;
+using BigFileSort.System;
+
+namespace BigFileSort.Parsing;
 
 public sealed class StringBufferParser : IFileParser
 {

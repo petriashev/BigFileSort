@@ -1,4 +1,4 @@
-﻿namespace BigFileSort.Domain;
+﻿namespace BigFileSort.Parsing;
 
 public sealed class StreamReaderParser : IFileParser
 {

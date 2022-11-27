@@ -1,7 +1,9 @@
 ﻿using System.Text;
 using System.Threading.Tasks.Dataflow;
+using BigFileSort.Parsing;
+using BigFileSort.System;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.Sorting;
 
 public sealed class FileSorter : IFileSorter
 {
@@ -10,7 +12,7 @@ public sealed class FileSorter : IFileSorter
     {
         using var sortFile = new Measure($"SortFile");
         
-        var memoryLimitInBytes = command.MemoryLimitInBytes;
+        var memoryLimitInBytes = command.BuggerSizeInBytes;
         
         long filePosition = 0;
         int iteration = 1;

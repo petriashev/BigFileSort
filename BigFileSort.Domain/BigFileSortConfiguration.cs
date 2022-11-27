@@ -1,11 +1,30 @@
-﻿namespace BigFileSort;
+﻿using BigFileSort.System;
 
+namespace BigFileSort;
+
+/// <summary>
+/// BigFile start configuration.
+/// </summary>
 public record BigFileSortConfiguration
 {
+    /// <summary>
+    /// Gets or sets command to run.
+    /// </summary>
     public FileCommand Command { get; init; }
+    
+    /// <summary>
+    /// Gets or sets the working directory for file operations.
+    /// </summary>
     public string? WorkingDirectory { get; init; }
     
+    /// <summary>
+    /// Gets or sets Generate file options.
+    /// </summary>
     public GenerateFileConfiguration Generate { get; init; }
+    
+    /// <summary>
+    /// Gets or sets Sort file options.
+    /// </summary>
     public SortFileConfiguration Sort { get; init; }
 }
 
@@ -28,7 +47,9 @@ public class SortFileConfiguration
     
     public string OutputFileName { get; init; } = "sorted_{0}.txt";
 
-    public int? MemoryLimitInMegabytes { get; init; } = 1025;
+    public int BufferSize { get; init; } = 1025;
+    
+    public DataUnit BufferSizeUnit { get; init; } = DataUnit.MEGABYTES;
     
     public byte[] Delimiter{ get; init; } = {13, 10};
     

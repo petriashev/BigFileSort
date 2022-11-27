@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.System;
 
 public class Measure : IDisposable
 {
@@ -51,6 +51,4 @@ public class Measure : IDisposable
         Console.SetCursorPosition(left, top);
         _threadCurrentMeasure.Value = _parent;
     }
-
-    
 }

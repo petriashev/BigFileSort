@@ -1,4 +1,4 @@
-﻿namespace BigFileSort.Domain;
+﻿namespace BigFileSort.Generation;
 
 public interface IFileGenerator
 {

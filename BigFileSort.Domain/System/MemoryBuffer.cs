@@ -1,4 +1,4 @@
-﻿namespace BigFileSort.Domain;
+﻿namespace BigFileSort.System;
 
 public sealed record MemoryBuffer(byte[] Buffer, int Start, int Length)
 {

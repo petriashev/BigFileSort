@@ -1,10 +1,11 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace BigFileSort.Domain;
+namespace BigFileSort.System;
 
 /// <summary>
-/// Virtual string allows not to allocate new strings. It uses shared buffer and string position and length.
+/// Virtual string allows to avoid string allocations.
+/// It uses shared buffer with string start position and string length.
 /// </summary>
 public readonly struct VirtualString : IEquatable<VirtualString>, IComparable<VirtualString>
 {

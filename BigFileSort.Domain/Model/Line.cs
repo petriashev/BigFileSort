@@ -1,4 +1,4 @@
-﻿namespace BigFileSort.Domain;
+﻿namespace BigFileSort.Model;
 
 public record Line(string? Source, int Number, string Text)
 {
