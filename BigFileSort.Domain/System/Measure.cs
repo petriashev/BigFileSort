@@ -6,6 +6,7 @@ public class Measure : IDisposable
 {
     private static readonly AsyncLocal<Measure?> _threadCurrentMeasure = new();
 
+    private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
     private readonly Measure? _parent;
     private readonly int _level;
     private readonly string _actionName;
@@ -31,8 +32,11 @@ public class Measure : IDisposable
         _actionName = actionName;
         _sw = Stopwatch.StartNew();
         var initialLine = $"{GetTab()}{_actionName} Started";
+        
+        _semaphore.Wait(1000);
         _cursorStartPosition = Console.GetCursorPosition();
         Console.WriteLine(initialLine);
+        _semaphore.Release();
     }
 
     private string GetTab() => new (Enumerable.Repeat('─', _level*2).ToArray());
@@ -45,10 +49,13 @@ public class Measure : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        _semaphore.Wait(1000);
         var (left, top) = Console.GetCursorPosition();
         Console.SetCursorPosition(_cursorStartPosition.Left, _cursorStartPosition.Top);
         Console.Write("{0}{1} {2} Elapsed: {3}", GetTab(), _actionName, _info, _sw.Elapsed);
         Console.SetCursorPosition(left, top);
+        _semaphore.Release();
+        
         _threadCurrentMeasure.Value = _parent;
     }
 }
